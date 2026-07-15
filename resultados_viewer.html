@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Trading Models Intelligence Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-main: #070b14;
+            --bg-panel: rgba(15, 23, 42, 0.92);
+            --bg-panel-soft: #111827;
+            --bg-card: linear-gradient(145deg, #0f172a, #111827);
+            --border-soft: rgba(148, 163, 184, 0.18);
+            --text-main: #e5e7eb;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --accent-2: #22c55e;
+            --danger: #ef4444;
+            --warning: #facc15;
+            --orange: #fb923c;
+            --purple: #a855f7;
+            --shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(56,189,248,0.12), transparent 30%),
+                radial-gradient(circle at top right, rgba(34,197,94,0.08), transparent 25%),
+                var(--bg-main);
+            color: var(--text-main);
+        }
+
+        header {
+            padding: 28px 34px;
+            border-bottom: 1px solid var(--border-soft);
+            background: rgba(2, 6, 23, 0.82);
+            backdrop-filter: blur(14px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .app-title {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 28px;
+            letter-spacing: -0.03em;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 14px;
+            border-radius: 999px;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            color: #bae6fd;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .container {
+            padding: 28px 34px 50px;
+            max-width: 1600px;
+            margin: auto;
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-soft);
+            box-shadow: var(--shadow);
+            border-radius: 22px;
+            padding: 24px;
+            margin-bottom: 26px;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 20px;
+            letter-spacing: -0.02em;
+        }
+
+        .small {
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        textarea {
+            width: 100%;
+            height: 240px;
+            background: #020617;
+            color: #dbeafe;
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            padding: 16px;
+            font-family: Consolas, Monaco, monospace;
+            font-size: 13px;
+            resize: vertical;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: rgba(56, 189, 248, 0.65);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-top: 14px;
+        }
+
+        button, input[type="file"], select {
+            border-radius: 12px;
+            border: 1px solid transparent;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        button {
+            padding: 11px 16px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+            color: #020617;
+            box-shadow: 0 10px 25px rgba(14, 165, 233, 0.18);
+            transition: transform 0.15s ease, filter 0.15s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.08);
+        }
+
+        button.secondary {
+            background: #111827;
+            color: var(--text-main);
+            border-color: #334155;
+            box-shadow: none;
+        }
+
+        button.success {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #02130a;
+        }
+
+        input[type="file"], select {
+            background: #020617;
+            color: var(--text-main);
+            border: 1px solid #334155;
+            padding: 10px 12px;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-soft);
+            border-radius: 18px;
+            padding: 18px;
+            min-height: 128px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card::after {
+            content: "";
+            position: absolute;
+            right: -35px;
+            top: -35px;
+            width: 90px;
+            height: 90px;
+            border-radius: 999px;
+            background: rgba(56, 189, 248, 0.08);
+        }
+
+        .metric-label {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 800;
+            color: white;
+            word-break: break-word;
+            line-height: 1.2;
+        }
+
+        .metric-extra {
+            margin-top: 8px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .metric-good {
+            color: var(--accent-2);
+        }
+
+        .metric-bad {
+            color: var(--danger);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+            gap: 22px;
+        }
+
+        .chart-card {
+            background: #020617;
+            border: 1px solid var(--border-soft);
+            border-radius: 18px;
+            padding: 18px;
+            min-height: 420px;
+        }
+
+        canvas {
+            width: 100% !important;
+            max-height: 390px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: 16px;
+            border: 1px solid var(--border-soft);
+        }
+
+        table {
+            width: 100%;
+            min-width: 900px;
+            border-collapse: collapse;
+            background: #020617;
+            font-size: 13px;
+        }
+
+        th, td {
+            padding: 12px 13px;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.65);
+            text-align: center;
+        }
+
+        th {
+            color: #bae6fd;
+            background: #0f172a;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover td {
+            background: rgba(30, 41, 59, 0.35);
+        }
+
+        .model-name {
+            text-align: left;
+            font-weight: 800;
+            color: #e0f2fe;
+        }
+
+        .rank-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 26px;
+            padding: 0 8px;
+            border-radius: 999px;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.28);
+            color: #7dd3fc;
+            font-weight: 900;
+        }
+
+        .score-pill {
+            display: inline-block;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: rgba(34, 197, 94, 0.12);
+            border: 1px solid rgba(34, 197, 94, 0.28);
+            color: #86efac;
+            font-weight: 900;
+        }
+
+        .positive {
+            color: #22c55e;
+            font-weight: 800;
+        }
+
+        .negative {
+            color: #f87171;
+            font-weight: 800;
+        }
+
+        .neutral {
+            color: #cbd5e1;
+        }
+
+        .heatmap-cell {
+            color: #020617;
+            font-weight: 900;
+            border-radius: 8px;
+        }
+
+        .status-ok {
+            color: #86efac;
+            margin-top: 12px;
+            font-weight: 700;
+        }
+
+        .status-error {
+            color: #fca5a5;
+            margin-top: 12px;
+            font-weight: 700;
+        }
+
+        .footer-note {
+            color: var(--text-muted);
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+        }
+
+        @media (max-width: 720px) {
+            header, .container {
+                padding-left: 18px;
+                padding-right: 18px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-card {
+                min-height: 360px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <div class="header-row">
+        <div class="app-title">
+            <h1>Trading Models Intelligence Dashboard</h1>
+            <div class="subtitle">
+                Análisis visual de modelos RL/LSTM · ROI · Win Rate · Drawdown · Operativa
+            </div>
+        </div>
+
+        <div class="badge">
+            ● Live JSON Analyzer
+        </div>
+    </div>
+</header>
+
+<div class="container">
+
+    <section class="panel">
+        <div class="panel-title">
+            <div>
+                <h2>01 · Carga de resultados</h2>
+                <div class="small">
+                    Sube tu archivo completo <b>resultados_entrenamientos.json</b>. El sistema filtrará automáticamente los indicadores clave.
+                </div>
+            </div>
+        </div>
+
+        <input type="file" id="fileInput" accept=".json">
+
+        <div style="height: 14px;"></div>
+
+        <textarea id="jsonInput">{
+  "LSTM_Base_500k_2_(RecurrentPPO49_SEMILLA42)": {
+    "roi_pct": -8.152725219726562,
+    "balance_inicial": 10000.0,
+    "balance_final": 9184.7275390625,
+    "ganancia_absoluta": -815.2724609375,
+    "ganancia_porcentual": -8.152725219726562,
+    "total_buys": 4548,
+    "total_sells": 6337,
+    "total_holds": 4948,
+    "win_rate": 63.026668770711694,
+    "max_drawdown": 15.521661758422852
+  }
+}</textarea>
+
+        <div class="toolbar">
+            <button onclick="loadFromTextarea()">Generar dashboard</button>
+            <button class="secondary" onclick="clearDashboard()">Limpiar</button>
+        </div>
+
+        <div id="status"></div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">
+            <div>
+                <h2>02 · Resumen ejecutivo</h2>
+                <div class="small">KPIs principales calculados sobre todos los modelos cargados.</div>
+            </div>
+        </div>
+
+        <div class="kpi-grid" id="summaryCards"></div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">
+            <div>
+                <h2>03 · Visualización principal</h2>
+                <div class="small">Comparativa gráfica de rentabilidad, operativa y riesgo.</div>
+            </div>
+
+            <div class="toolbar">
+                <button class="success" onclick="exportChart('roiChart', 'roi_modelos.png')">Exportar ROI</button>
+                <button class="success" onclick="exportChart('opsChart', 'operaciones_modelos.png')">Exportar Ops</button>
+                <button class="success" onclick="exportChart('performanceChart', 'performance_modelos.png')">Exportar Performance</button>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="chart-card">
+                <canvas id="roiChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <canvas id="opsChart"></canvas>
+            </div>
+
+            <div class="chart-card">
+                <canvas id="performanceChart"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">
+            <div>
+                <h2>04 · Ranking automático</h2>
+                <div class="small">
+                    Score = 40% ROI + 30% Win Rate + 20% menor Drawdown + 10% actividad operativa.
+                </div>
+            </div>
+        </div>
+
+        <div id="rankingTable"></div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">
+            <div>
+                <h2>05 · Heatmap de performance</h2>
+                <div class="small">
+                    Verde indica mejor comportamiento relativo. Rojo indica peor comportamiento relativo.
+                </div>
+            </div>
+        </div>
+
+        <div id="heatmapTable"></div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-title">
+            <div>
+                <h2>06 · Comparador de modelos</h2>
+                <div class="small">
+                    Selecciona dos modelos para comparar su perfil normalizado.
+                </div>
+            </div>
+
+            <div class="toolbar">
+                <select id="modelA"></select>
+                <select id="modelB"></select>
+                <button onclick="compareModels()">Comparar</button>
+                <button class="success" onclick="exportChart('compareChart', 'comparador_modelos.png')">Exportar Comparador</button>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <canvas id="compareChart"></canvas>
+        </div>
+
+        <div id="comparisonTable" style="margin-top: 20px;"></div>
+    </section>
+
+    <div class="footer-note">
+        Dashboard local · Los datos no salen de tu navegador.
+    </div>
+
+</div>
+
+<script>
+    let rawData = [];
+
+    let roiChart = null;
+    let opsChart = null;
+    let performanceChart = null;
+    let compareChart = null;
+
+    Chart.defaults.color = "#cbd5e1";
+    Chart.defaults.borderColor = "rgba(148, 163, 184, 0.16)";
+    Chart.defaults.font.family = "Inter, Segoe UI, Arial";
+
+    document.getElementById("fileInput").addEventListener("change", function(event) {
+        const file = event.target.files[0];
+
+        if (!file) return;
+
+        const reader = new FileReader();
+
+        reader.onload = function(e) {
+            try {
+                const json = JSON.parse(e.target.result);
+                document.getElementById("jsonInput").value = JSON.stringify(json, null, 2);
+                processData(json);
+            } catch (error) {
+                showError("Error leyendo el JSON: " + error.message);
+            }
+        };
+
+        reader.readAsText(file);
+    });
+
+    function loadFromTextarea() {
+        try {
+            const json = JSON.parse(document.getElementById("jsonInput").value);
+            processData(json);
+        } catch (error) {
+            showError("JSON inválido: " + error.message);
+        }
+    }
+
+    function processData(json) {
+        rawData = extractIndicators(json);
+
+        if (rawData.length === 0) {
+            showError("No se ha encontrado ningún modelo válido con los indicadores esperados.");
+            return;
+        }
+
+        showStatus("Modelos cargados correctamente: " + rawData.length);
+
+        renderSummary();
+        renderCharts();
+        renderRanking();
+        renderHeatmap();
+        fillComparatorSelectors();
+        compareModels();
+    }
+
+    function extractIndicators(json) {
+        let result = [];
+
+        if (!Array.isArray(json) && typeof json === "object" && json !== null) {
+            Object.entries(json).forEach(([modelName, values]) => {
+                if (typeof values === "object" && values !== null) {
+                    const extracted = buildModelRow(modelName, values);
+
+                    if (isValidModel(extracted)) {
+                        result.push(extracted);
+                    }
+                }
+            });
+        }
+
+        if (Array.isArray(json)) {
+            json.forEach((item, index) => {
+                const modelName =
+                    item.modelo ||
+                    item.model ||
+                    item.nombre ||
+                    item.name ||
+                    "Modelo " + (index + 1);
+
+                const extracted = buildModelRow(modelName, item);
+
+                if (isValidModel(extracted)) {
+                    result.push(extracted);
+                }
+            });
+        }
+
+        return result;
+    }
+
+    function buildModelRow(modelName, values) {
+        return {
+            modelo: modelName,
+
+            roi_pct: toNumber(
+                values.roi_pct ??
+                values.roi_ptc ??
+                values.ganancia_porcentual ??
+                values.mean_profit_pct ??
+                0
+            ),
+
+            total_buys: toNumber(values.total_buys ?? 0),
+            total_sells: toNumber(values.total_sells ?? 0),
+            total_holds: toNumber(values.total_holds ?? 0),
+            win_rate: toNumber(values.win_rate ?? 0),
+            max_drawdown: toNumber(values.max_drawdown ?? 0),
+
+            balance_inicial: toNumber(values.balance_inicial ?? 0),
+            balance_final: toNumber(values.balance_final ?? 0),
+            ganancia_absoluta: toNumber(values.ganancia_absoluta ?? 0),
+            timestamp: values.timestamp ?? "",
+            fecha_legible: values.fecha_legible ?? "",
+            dataset: values.dataset ?? ""
+        };
+    }
+
+    function isValidModel(model) {
+        return (
+            isFinite(model.roi_pct) &&
+            isFinite(model.total_buys) &&
+            isFinite(model.total_sells) &&
+            isFinite(model.total_holds) &&
+            isFinite(model.win_rate) &&
+            isFinite(model.max_drawdown)
+        );
+    }
+
+    function renderSummary() {
+        const container = document.getElementById("summaryCards");
+
+        const bestRoi = [...rawData].sort((a, b) => b.roi_pct - a.roi_pct)[0];
+        const bestWinRate = [...rawData].sort((a, b) => normalizeWinRateToPercent(b.win_rate) - normalizeWinRateToPercent(a.win_rate))[0];
+        const bestDrawdown = [...rawData].sort((a, b) => Math.abs(a.max_drawdown) - Math.abs(b.max_drawdown))[0];
+
+        const avgRoi = average(rawData.map(d => d.roi_pct));
+        const avgWinRate = average(rawData.map(d => normalizeWinRateToPercent(d.win_rate)));
+        const avgDrawdown = average(rawData.map(d => Math.abs(d.max_drawdown)));
+
+        const positiveModels = rawData.filter(d => d.roi_pct > 0).length;
+
+        container.innerHTML = `
+            <div class="metric-card">
+                <div class="metric-label">Mejor ROI</div>
+                <div class="metric-value">${bestRoi.modelo}</div>
+                <div class="metric-extra metric-good">${bestRoi.roi_pct.toFixed(2)}%</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Mejor Win Rate</div>
+                <div class="metric-value">${bestWinRate.modelo}</div>
+                <div class="metric-extra metric-good">${normalizeWinRateToPercent(bestWinRate.win_rate).toFixed(2)}%</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Menor Drawdown</div>
+                <div class="metric-value">${bestDrawdown.modelo}</div>
+                <div class="metric-extra">${Math.abs(bestDrawdown.max_drawdown).toFixed(2)}%</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">ROI Medio</div>
+                <div class="metric-value ${avgRoi >= 0 ? "metric-good" : "metric-bad"}">${avgRoi.toFixed(2)}%</div>
+                <div class="metric-extra">Promedio del conjunto</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Win Rate Medio</div>
+                <div class="metric-value">${avgWinRate.toFixed(2)}%</div>
+                <div class="metric-extra">Media normalizada</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Drawdown Medio</div>
+                <div class="metric-value">${avgDrawdown.toFixed(2)}%</div>
+                <div class="metric-extra">Menor es mejor</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Modelos positivos</div>
+                <div class="metric-value">${positiveModels}/${rawData.length}</div>
+                <div class="metric-extra">ROI superior a 0%</div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Total modelos</div>
+                <div class="metric-value">${rawData.length}</div>
+                <div class="metric-extra">Entrenamientos analizados</div>
+            </div>
+        `;
+    }
+
+    function renderCharts() {
+        const labels = rawData.map(d => shortenName(d.modelo));
+
+        const roi = rawData.map(d => d.roi_pct);
+        const buys = rawData.map(d => d.total_buys);
+        const sells = rawData.map(d => d.total_sells);
+        const holds = rawData.map(d => d.total_holds);
+        const winRate = rawData.map(d => normalizeWinRateToPercent(d.win_rate));
+        const drawdown = rawData.map(d => Math.abs(d.max_drawdown));
+
+        destroyChart(roiChart);
+        destroyChart(opsChart);
+        destroyChart(performanceChart);
+
+        roiChart = new Chart(document.getElementById("roiChart"), {
+            type: "bar",
+            data: {
+                labels,
+                datasets: [{
+                    label: "ROI %",
+                    data: roi,
+                    borderRadius: 8,
+                    backgroundColor: roi.map(v => v >= 0 ? "rgba(34,197,94,0.85)" : "rgba(239,68,68,0.85)")
+                }]
+            },
+            options: defaultOptions("ROI por modelo")
+        });
+
+        opsChart = new Chart(document.getElementById("opsChart"), {
+            type: "bar",
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: "Buys",
+                        data: buys,
+                        borderRadius: 8,
+                        backgroundColor: "rgba(59,130,246,0.85)"
+                    },
+                    {
+                        label: "Sells",
+                        data: sells,
+                        borderRadius: 8,
+                        backgroundColor: "rgba(239,68,68,0.85)"
+                    },
+                    {
+                        label: "Holds",
+                        data: holds,
+                        borderRadius: 8,
+                        backgroundColor: "rgba(250,204,21,0.85)"
+                    }
+                ]
+            },
+            options: defaultOptions("Actividad operativa")
+        });
+
+        performanceChart = new Chart(document.getElementById("performanceChart"), {
+            type: "line",
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: "Win Rate %",
+                        data: winRate,
+                        borderColor: "#38bdf8",
+                        backgroundColor: "rgba(56,189,248,0.18)",
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        tension: 0.35,
+                        fill: true
+                    },
+                    {
+                        label: "Max Drawdown %",
+                        data: drawdown,
+                        borderColor: "#fb923c",
+                        backgroundColor: "rgba(251,146,60,0.12)",
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        tension: 0.35,
+                        fill: true
+                    }
+                ]
+            },
+            options: defaultOptions("Win Rate vs Drawdown")
+        });
+    }
+
+    function renderRanking() {
+        const ranked = calculateRanking();
+
+        let html = `
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Modelo</th>
+                            <th>Score</th>
+                            <th>ROI</th>
+                            <th>Win Rate</th>
+                            <th>Drawdown</th>
+                            <th>Buys</th>
+                            <th>Sells</th>
+                            <th>Holds</th>
+                            <th>Total Ops</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        ranked.forEach((d, index) => {
+            html += `
+                <tr>
+                    <td><span class="rank-pill">${index + 1}</span></td>
+                    <td class="model-name">${d.modelo}</td>
+                    <td><span class="score-pill">${d.score.toFixed(2)}</span></td>
+                    <td class="${d.roi_pct >= 0 ? "positive" : "negative"}">${d.roi_pct.toFixed(2)}%</td>
+                    <td>${normalizeWinRateToPercent(d.win_rate).toFixed(2)}%</td>
+                    <td>${Math.abs(d.max_drawdown).toFixed(2)}%</td>
+                    <td>${formatInt(d.total_buys)}</td>
+                    <td>${formatInt(d.total_sells)}</td>
+                    <td>${formatInt(d.total_holds)}</td>
+                    <td>${formatInt(d.total_ops)}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        document.getElementById("rankingTable").innerHTML = html;
+    }
+
+    function calculateRanking() {
+        const roiValues = rawData.map(d => d.roi_pct);
+        const winValues = rawData.map(d => normalizeWinRateToPercent(d.win_rate));
+        const drawdownValues = rawData.map(d => Math.abs(d.max_drawdown));
+        const opsValues = rawData.map(d => d.total_buys + d.total_sells + d.total_holds);
+
+        return rawData.map(d => {
+            const totalOps = d.total_buys + d.total_sells + d.total_holds;
+
+            const roiScore = normalize(d.roi_pct, roiValues);
+            const winScore = normalize(normalizeWinRateToPercent(d.win_rate), winValues);
+            const drawdownScore = 1 - normalize(Math.abs(d.max_drawdown), drawdownValues);
+            const opsScore = normalize(totalOps, opsValues);
+
+            const score =
+                roiScore * 0.40 +
+                winScore * 0.30 +
+                drawdownScore * 0.20 +
+                opsScore * 0.10;
+
+            return {
+                ...d,
+                total_ops: totalOps,
+                score: score * 100
+            };
+        }).sort((a, b) => b.score - a.score);
+    }
+
+    function renderHeatmap() {
+        const metrics = [
+            { key: "roi_pct", label: "ROI %" },
+            { key: "total_buys", label: "Buys" },
+            { key: "total_sells", label: "Sells" },
+            { key: "total_holds", label: "Holds" },
+            { key: "win_rate", label: "Win Rate" },
+            { key: "max_drawdown", label: "Drawdown" }
+        ];
+
+        let html = `
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Modelo</th>
+                            ${metrics.map(m => `<th>${m.label}</th>`).join("")}
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        rawData.forEach(model => {
+            html += `<tr><td class="model-name">${model.modelo}</td>`;
+
+            metrics.forEach(metric => {
+                const values = rawData.map(d => {
+                    if (metric.key === "win_rate") return normalizeWinRateToPercent(d[metric.key]);
+                    if (metric.key === "max_drawdown") return Math.abs(d[metric.key]);
+                    return d[metric.key];
+                });
+
+                let value;
+
+                if (metric.key === "win_rate") {
+                    value = normalizeWinRateToPercent(model[metric.key]);
+                } else if (metric.key === "max_drawdown") {
+                    value = Math.abs(model[metric.key]);
+                } else {
+                    value = model[metric.key];
+                }
+
+                let normalizedValue = normalize(value, values);
+
+                if (metric.key === "max_drawdown") {
+                    normalizedValue = 1 - normalizedValue;
+                }
+
+                const color = heatColor(normalizedValue);
+
+                html += `
+                    <td>
+                        <span class="heatmap-cell" style="display:block; padding:8px; background:${color};">
+                            ${formatMetric(metric.key, model[metric.key])}
+                        </span>
+                    </td>
+                `;
+            });
+
+            html += `</tr>`;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        document.getElementById("heatmapTable").innerHTML = html;
+    }
+
+    function fillComparatorSelectors() {
+        const modelA = document.getElementById("modelA");
+        const modelB = document.getElementById("modelB");
+
+        modelA.innerHTML = "";
+        modelB.innerHTML = "";
+
+        rawData.forEach((d, index) => {
+            modelA.innerHTML += `<option value="${index}">${d.modelo}</option>`;
+            modelB.innerHTML += `<option value="${index}">${d.modelo}</option>`;
+        });
+
+        if (rawData.length > 1) {
+            modelB.value = 1;
+        }
+    }
+
+    function compareModels() {
+        if (rawData.length === 0) return;
+
+        const indexA = Number(document.getElementById("modelA").value || 0);
+        const indexB = Number(document.getElementById("modelB").value || 0);
+
+        const a = rawData[indexA];
+        const b = rawData[indexB];
+
+        if (!a || !b) return;
+
+        const labels = [
+            "ROI",
+            "Buys",
+            "Sells",
+            "Holds",
+            "Win Rate",
+            "Drawdown Control"
+        ];
+
+        const allValues = {
+            roi_pct: rawData.map(d => d.roi_pct),
+            total_buys: rawData.map(d => d.total_buys),
+            total_sells: rawData.map(d => d.total_sells),
+            total_holds: rawData.map(d => d.total_holds),
+            win_rate: rawData.map(d => normalizeWinRateToPercent(d.win_rate)),
+            max_drawdown: rawData.map(d => Math.abs(d.max_drawdown))
+        };
+
+        const valuesA = [
+            normalize(a.roi_pct, allValues.roi_pct) * 100,
+            normalize(a.total_buys, allValues.total_buys) * 100,
+            normalize(a.total_sells, allValues.total_sells) * 100,
+            normalize(a.total_holds, allValues.total_holds) * 100,
+            normalize(normalizeWinRateToPercent(a.win_rate), allValues.win_rate) * 100,
+            (1 - normalize(Math.abs(a.max_drawdown), allValues.max_drawdown)) * 100
+        ];
+
+        const valuesB = [
+            normalize(b.roi_pct, allValues.roi_pct) * 100,
+            normalize(b.total_buys, allValues.total_buys) * 100,
+            normalize(b.total_sells, allValues.total_sells) * 100,
+            normalize(b.total_holds, allValues.total_holds) * 100,
+            normalize(normalizeWinRateToPercent(b.win_rate), allValues.win_rate) * 100,
+            (1 - normalize(Math.abs(b.max_drawdown), allValues.max_drawdown)) * 100
+        ];
+
+        destroyChart(compareChart);
+
+        compareChart = new Chart(document.getElementById("compareChart"), {
+            type: "radar",
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: a.modelo,
+                        data: valuesA,
+                        borderColor: "#38bdf8",
+                        backgroundColor: "rgba(56,189,248,0.20)",
+                        pointBackgroundColor: "#38bdf8"
+                    },
+                    {
+                        label: b.modelo,
+                        data: valuesB,
+                        borderColor: "#fb923c",
+                        backgroundColor: "rgba(251,146,60,0.18)",
+                        pointBackgroundColor: "#fb923c"
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: "Comparador normalizado entre modelos",
+                        color: "#e5e7eb",
+                        font: {
+                            size: 15,
+                            weight: "bold"
+                        }
+                    },
+                    legend: {
+                        labels: {
+                            color: "#e5e7eb"
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        suggestedMin: 0,
+                        suggestedMax: 100,
+                        angleLines: {
+                            color: "rgba(148,163,184,0.18)"
+                        },
+                        grid: {
+                            color: "rgba(148,163,184,0.18)"
+                        },
+                        pointLabels: {
+                            color: "#cbd5e1"
+                        },
+                        ticks: {
+                            color: "#94a3b8",
+                            backdropColor: "transparent"
+                        }
+                    }
+                }
+            }
+        });
+
+        document.getElementById("comparisonTable").innerHTML = `
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Métrica</th>
+                            <th>${a.modelo}</th>
+                            <th>${b.modelo}</th>
+                            <th>Mejor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${comparisonRow("ROI", a.roi_pct, b.roi_pct, "%", "higher")}
+                        ${comparisonRow("Total buys", a.total_buys, b.total_buys, "", "higher")}
+                        ${comparisonRow("Total sells", a.total_sells, b.total_sells, "", "higher")}
+                        ${comparisonRow("Total holds", a.total_holds, b.total_holds, "", "higher")}
+                        ${comparisonRow("Win rate", normalizeWinRateToPercent(a.win_rate), normalizeWinRateToPercent(b.win_rate), "%", "higher")}
+                        ${comparisonRow("Max drawdown", Math.abs(a.max_drawdown), Math.abs(b.max_drawdown), "%", "lower")}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    function comparisonRow(metric, valueA, valueB, suffix, mode) {
+        let winner;
+
+        if (valueA === valueB) {
+            winner = "Empate";
+        } else if (mode === "lower") {
+            winner = valueA < valueB ? "Modelo A" : "Modelo B";
+        } else {
+            winner = valueA > valueB ? "Modelo A" : "Modelo B";
+        }
+
+        return `
+            <tr>
+                <td>${metric}</td>
+                <td>${Number(valueA).toFixed(2)}${suffix}</td>
+                <td>${Number(valueB).toFixed(2)}${suffix}</td>
+                <td><b>${winner}</b></td>
+            </tr>
+        `;
+    }
+
+    function exportChart(canvasId, filename) {
+        const canvas = document.getElementById(canvasId);
+
+        if (!canvas) return;
+
+        const link = document.createElement("a");
+        link.download = filename;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+    }
+
+    function clearDashboard() {
+        rawData = [];
+
+        document.getElementById("summaryCards").innerHTML = "";
+        document.getElementById("rankingTable").innerHTML = "";
+        document.getElementById("heatmapTable").innerHTML = "";
+        document.getElementById("comparisonTable").innerHTML = "";
+        document.getElementById("status").innerHTML = "";
+
+        destroyChart(roiChart);
+        destroyChart(opsChart);
+        destroyChart(performanceChart);
+        destroyChart(compareChart);
+    }
+
+    function defaultOptions(title) {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: title,
+                    color: "#e5e7eb",
+                    font: {
+                        size: 15,
+                        weight: "bold"
+                    },
+                    padding: {
+                        bottom: 18
+                    }
+                },
+                legend: {
+                    labels: {
+                        color: "#e5e7eb",
+                        boxWidth: 14,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    mode: "index",
+                    intersect: false,
+                    backgroundColor: "#020617",
+                    titleColor: "#e5e7eb",
+                    bodyColor: "#cbd5e1",
+                    borderColor: "rgba(148,163,184,0.25)",
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: "#94a3b8",
+                        maxRotation: 45,
+                        minRotation: 0
+                    },
+                    grid: {
+                        color: "rgba(148,163,184,0.08)"
+                    }
+                },
+                y: {
+                    ticks: {
+                        color: "#94a3b8"
+                    },
+                    grid: {
+                        color: "rgba(148,163,184,0.12)"
+                    }
+                }
+            }
+        };
+    }
+
+    function destroyChart(chart) {
+        if (chart) {
+            chart.destroy();
+        }
+    }
+
+    function toNumber(value) {
+        const number = Number(value);
+        return isFinite(number) ? number : 0;
+    }
+
+    function average(values) {
+        if (!values.length) return 0;
+        return values.reduce((a, b) => a + b, 0) / values.length;
+    }
+
+    function normalize(value, values) {
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+
+        if (max === min) {
+            return 1;
+        }
+
+        return (value - min) / (max - min);
+    }
+
+    function normalizeWinRateToPercent(value) {
+        if (value <= 1) {
+            return value * 100;
+        }
+
+        return value;
+    }
+
+    function formatMetric(metric, value) {
+        if (metric === "roi_pct") {
+            return Number(value).toFixed(2) + "%";
+        }
+
+        if (metric === "win_rate") {
+            return normalizeWinRateToPercent(value).toFixed(2) + "%";
+        }
+
+        if (metric === "max_drawdown") {
+            return Math.abs(Number(value)).toFixed(2) + "%";
+        }
+
+        return formatInt(value);
+    }
+
+    function formatInt(value) {
+        return Number(value).toLocaleString("es-ES", {
+            maximumFractionDigits: 0
+        });
+    }
+
+    function heatColor(value) {
+        const red = Math.round(248 - value * 214);
+        const green = Math.round(113 + value * 84);
+        const blue = Math.round(113 - value * 27);
+
+        return `rgb(${red}, ${green}, ${blue})`;
+    }
+
+    function shortenName(name) {
+        if (!name) return "";
+
+        if (name.length <= 34) {
+            return name;
+        }
+
+        return name.substring(0, 31) + "...";
+    }
+
+    function showError(message) {
+        document.getElementById("status").innerHTML = `<div class="status-error">${message}</div>`;
+    }
+
+    function showStatus(message) {
+        document.getElementById("status").innerHTML = `<div class="status-ok">${message}</div>`;
+    }
+
+    loadFromTextarea();
+</script>
+
+</body>
+</html>

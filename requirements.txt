@@ -1,0 +1,12 @@
+#binance-sdk-spot
+#binance-connector
+python-binance
+pandas
+numpy
+matplotlib
+websocket-client
+mplfinance
+numpy
+
+pip install python-binance pandas numpy matplotlib ta gymnasium stable-baselines3 shimmy scikit-learn websocket-client mplfinance
+pip install seaborn
