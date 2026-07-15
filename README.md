@@ -56,7 +56,187 @@ Para que el sistema de producción se conecte a tu cuenta de simulación de Bina
 1. Entra en [Binance Testnet](https://testnet.binance.vision/) y genera una clave API
 2. Abre el archivo `utils/config.ini`
 3. Baja hasta la sección **`# --- TESTNET cartera producción ---`**
-4. Sustituye el texto por tus claves
+5. Sustituye el texto por tus claves
    api_key_test=TU_API_KEY
    api_secret_test=TU_API_SECRET
    url_base_api_test=[https://testnet.binance.vision](https://testnet.binance.vision)
+
+---
+
+# Flujo de Trabajo
+
+El ciclo de vida del proyecto sigue una secuencia bien definida, desde la generación de los datos de entrenamiento hasta la ejecución del agente en un entorno de producción mediante la interfaz de consola.
+
+## 1. Generación del Dataset de Entrenamiento
+
+El primer paso consiste en obtener los datos históricos del mercado y preparar el conjunto de datos que servirá para entrenar al agente.
+
+En primer lugar, se ejecuta el script encargado de descargar el histórico de velas de Binance y calcular todos los indicadores técnicos necesarios:
+
+```bash
+python producción/generar_dataset_completo.py
+```
+
+Una vez generado el histórico, es necesario etiquetar los datos mediante el algoritmo de puntuación basado en ATR, que identifica automáticamente los puntos óptimos de compra y venta.
+
+```bash
+python producción/generar_puntuaciones_picos_valles_atr.py
+```
+
+El dataset final se almacenará dentro del directorio:
+
+```
+data/
+```
+
+---
+
+## 2. Generación de los Datasets de Evaluación
+
+Para evaluar la capacidad de generalización del modelo se generan varios conjuntos de datos independientes que representan diferentes condiciones del mercado (mercados alcistas, bajistas, alta volatilidad, crash de COVID-19, etc.).
+
+```bash
+python producción/generar_evaluaciones.py
+```
+
+Los siete históricos generados se almacenarán en:
+
+```
+data/evaluaciones_tfg/
+```
+
+Estos conjuntos de datos se utilizan exclusivamente para evaluación y no intervienen durante el entrenamiento del modelo.
+
+---
+
+## 3. Entrenamiento del Modelo
+
+Una vez preparados los datos, puede iniciarse el proceso de entrenamiento del agente.
+
+```bash
+python train/entrenar.py USD
+```
+
+Durante esta fase se realizan automáticamente las siguientes operaciones:
+
+- Carga del dataset de entrenamiento.
+- Ajuste del `StandardScaler`.
+- Entrenamiento del modelo LSTM basado en Reinforcement Learning.
+- Guardado periódico de checkpoints.
+- Registro de métricas para su posterior análisis.
+
+### Archivos generados
+
+Los modelos entrenados se almacenan en:
+
+```
+models/
+```
+
+Los checkpoints intermedios se guardan en:
+
+```
+models/checkpoints/
+```
+
+El `StandardScaler` utilizado durante el entrenamiento se almacena en:
+
+```
+scalers/
+```
+
+### Monitorización con TensorBoard
+
+El progreso del entrenamiento puede visualizarse en tiempo real ejecutando en otra terminal:
+
+```bash
+tensorboard --logdir logs/tensorboard
+```
+
+TensorBoard permite analizar métricas como la recompensa acumulada, pérdidas, evolución del aprendizaje y otros indicadores relevantes durante el entrenamiento.
+
+---
+
+## 4. Evaluación de Modelos
+
+Tras finalizar el entrenamiento, los modelos pueden evaluarse automáticamente sobre los siete periodos históricos generados anteriormente.
+
+```bash
+python producción/evaluador.py
+```
+
+El evaluador compara el rendimiento de todos los checkpoints disponibles y genera un informe consolidado en:
+
+```
+resultados_comparativa_tfg.json
+```
+
+Este archivo recoge las métricas de rendimiento obtenidas por cada modelo durante las distintas evaluaciones.
+
+---
+
+## 5. Ejecución del Sistema
+
+La ejecución del sistema se realiza mediante la interfaz de consola incluida en el proyecto.
+
+```bash
+python ui.py
+```
+
+La aplicación ofrece tres modos de funcionamiento:
+
+### Evaluación del Agente
+
+Ejecuta una evaluación rápida del modelo sobre los siete escenarios históricos disponibles y muestra un resumen de las métricas obtenidas.
+
+### Paper Trading
+
+Inicia el entorno de producción conectado a Binance Testnet.
+
+Durante su ejecución:
+
+- Se descargan datos del mercado en tiempo real.
+- El modelo realiza inferencias continuamente.
+- El Circuit Breaker supervisa el riesgo de la cartera.
+- Las órdenes de compra y venta se envían a Binance Testnet.
+- Todas las operaciones quedan registradas automáticamente en:
+
+```
+producción/operaciones_por_agente.csv
+```
+
+### Oráculo
+
+Permite consultar el estado actual del mercado sin ejecutar ninguna operación.
+
+El agente analiza los datos más recientes y devuelve una recomendación:
+
+- **COMPRAR**
+- **VENDER**
+- **ESPERAR**
+
+Este modo resulta especialmente útil para validar las predicciones del modelo sin realizar operaciones sobre la cuenta de simulación.
+
+---
+
+# Visualización y Análisis de Resultados
+
+El proyecto incorpora un visor web que permite analizar de forma interactiva los resultados obtenidos durante el entrenamiento y la evaluación de los modelos.
+
+Para utilizarlo:
+
+1. Abrir el archivo `resultados_viewer.html` en cualquier navegador moderno.
+2. Pulsar **"Cargar Resultados"**.
+3. Seleccionar uno de los archivos JSON generados por el sistema:
+   - `resultados_entrenamientos.json`
+   - `resultados_comparativa_tfg.json`
+
+El visor genera automáticamente diferentes herramientas de análisis, entre las que se incluyen:
+
+- Heatmaps comparativos de rendimiento.
+- Rankings globales de modelos.
+- Gráficos Radar para comparar dos modelos.
+- Análisis de riesgo mediante Drawdown y Win Rate.
+- Comparativas detalladas de las métricas obtenidas en cada evaluación.
+
+Este dashboard facilita la selección del modelo más adecuado antes de su despliegue en producción.
