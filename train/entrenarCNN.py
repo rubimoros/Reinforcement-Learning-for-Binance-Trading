@@ -33,7 +33,6 @@ th.manual_seed(SEMILLA)
 th.backends.cudnn.deterministic = True
 th.backends.cudnn.benchmark = False
 
-# Capturador de terminal
 if len(sys.argv) > 1:
     objetivo_arg = sys.argv[1].upper()
     if objetivo_arg not in ["USD", "BTC"]:
@@ -42,16 +41,10 @@ if len(sys.argv) > 1:
     OBJETIVO = objetivo_arg
     
 class HistoryWrapper(gym.Wrapper):
-    """
-    Acumula las últimas 'window_size' observaciones.
-    Convierte un paso aislado en una "foto" bidimensional.
-    """
     def __init__(self, env, window_size=50):
         super().__init__(env)
         self.window_size = window_size
         self.history = deque(maxlen=window_size)
-        
-        # Asumimos que el entorno base devuelve un Box 1D
         base_shape = env.observation_space.shape
         self.n_features = base_shape[0]
         
@@ -63,7 +56,6 @@ class HistoryWrapper(gym.Wrapper):
 
     def reset(self, **kwargs):
         obs, info = self.env.reset(**kwargs)
-        # Llenamos la historia inicial con la primera observación repetida
         for _ in range(self.window_size):
             self.history.append(obs)
         return np.array(self.history, dtype=np.float32), info
@@ -76,12 +68,7 @@ class HistoryWrapper(gym.Wrapper):
 class TradingCNN(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
         super().__init__(observation_space, features_dim)
-        
-        # dimension de entrada: (window_size, n_features)
         window_size, n_features = observation_space.shape
-        
-        # PyTorch Conv1d espera: (batch_size, channels, length)
-        # Convertiremos los features en channels y el window_size en length
         self.cnn = nn.Sequential(
             nn.Conv1d(in_channels=n_features, out_channels=32, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -92,10 +79,8 @@ class TradingCNN(BaseFeaturesExtractor):
             nn.Flatten()
         )
         
-        # Calculamos la forma de salida de la CNN automáticamente
         with th.no_grad():
             sample = th.as_tensor(observation_space.sample()[None]).float()
-            # Permutamos de (batch, window, features) a (batch, features, window)
             sample_permuted = sample.permute(0, 2, 1)
             n_flatten = self.cnn(sample_permuted).shape[1]
             
@@ -105,14 +90,11 @@ class TradingCNN(BaseFeaturesExtractor):
         )
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
-        # observations shape: (batch_size, window_size, n_features)
-        # Conv1d espera: (batch_size, n_features, window_size)
         x = observations.permute(0, 2, 1)
         x = self.cnn(x)
         return self.linear(x)
 
 def evaluar_modelo(model, env, n_episodes=10):
-    """Evalúa el modelo durante n episodios y retorna métricas COMPLETAS"""
     all_rewards = []
     all_net_worths = []
     all_profits = []
@@ -195,9 +177,6 @@ def main():
     df_val['Puntuacion'] = 0.0
     df_test['Puntuacion'] = 0.0
 
-    # Scaler único: ajustado solo con train, reutilizado en val/test. Si ya existe
-    # el guardado por entrenar.py (misma corrida de dataset), lo reutiliza tal cual
-    # para que las 3 arquitecturas compitan con exactamente el mismo scaler.
     if os.path.exists(RUTA_SCALER):
         print(f"Reutilizando scaler ya existente: {RUTA_SCALER}")
         scaler_maestro = joblib.load(RUTA_SCALER)
@@ -262,13 +241,13 @@ def main():
     end_time = datetime.now()
     
     training_time = (end_time - start_time).total_seconds()
-    print(f"\n   ✓ Entrenamiento completado en {training_time:.2f} segundos ({training_time/60:.2f} minutos)")
+    print(f"\nEntrenamiento completado en {training_time:.2f} segundos ({training_time/60:.2f} minutos)")
     
     model_path = os.path.join(MODELO_DIR, f"{NOMBRE_EXPERIMENTO}_final.zip")
     model.save(model_path)
     
     print("\n" + "=" * 60)
-    print("📊 EVALUACIÓN FINAL CNN PURA")
+    print("EVALUACIÓN CNN")
     print("=" * 60)
     
     train_metrics = evaluar_modelo(model, env_train, n_episodes=1)
