@@ -62,6 +62,32 @@ def ejecutar_paper_trading():
     usdt_virtual = 10000.0
     btc_virtual = 0.0
     
+    # Si no se quiere usar la pseudo cartera porque se quiere probar con la cartera real, borrar este bucle y cambiar las variables usdt_virtual y btc_virtual por usdt_real y btc_real
+    if os.path.exists("operaciones_por_agente.csv"):
+        import csv
+        with open("operaciones_por_agente.csv", "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            next(reader, None)
+            for row in reader:
+                if len(row) > 0 and isinstance(row[0], str) and "sin 1 BTC" in row[0]:
+                    usdt_virtual = 10000.0
+                    btc_virtual = 0.0
+                    continue
+                
+                if len(row) >= 4:
+                    accion = row[1]
+                    try:
+                        precio = float(row[2])
+                        cantidad = float(row[3])
+                        if accion == "BUY":
+                            btc_virtual += cantidad
+                            usdt_virtual -= (cantidad * precio * 1.001) # Restamos USDT + comisión
+                        elif accion == "SELL":
+                            btc_virtual -= cantidad
+                            usdt_virtual += (cantidad * precio * 0.999) # Sumamos USDT - comisión
+                    except ValueError:
+                        continue
+    
     for b in account['balances']:
         if b['asset'] == 'USDT':
             usdt_real = float(b['free'])
@@ -71,17 +97,17 @@ def ejecutar_paper_trading():
     console.print(f"[bold green]Saldo de la Pseudocartera Aislada:[/bold green] {usdt_virtual:.2f} USDT | {btc_virtual:.6f} BTC")        
     console.print(f"[bold green]Saldo disponible en Binance:[/bold green] {usdt_real:.2f} USDT | {btc_real:.6f} BTC")
     
-    # 2. El usuario elige cuánto capital asignar al bot, cambiar virtual por real con un mínimo de 1000
+    # 2. El usuario elige cuánto capital asignar al bot, cambiar virtual por real con un mínimo de 1000 tope_defecto = min(1000.0, usdt_real)
     tope_defecto = min(usdt_virtual, usdt_real)
     dinero_asignado = FloatPrompt.ask("¿Cuánto USDT de la pseudocartera quieres que el bot invierta?", default=tope_defecto)
     # dinero_asignado = FloatPrompt.ask("¿Cuánto USDT quieres que el bot invierta?", default=tope_defecto)
     
-    if dinero_asignado > usdt_real:
-        console.print(f"[bold yellow]No tienes suficiente USDT. Se asignará tu máximo disponible: {usdt_real:.2f}[/bold yellow]")
-        dinero_asignado = usdt_real
+    if dinero_asignado > usdt_virtual:
+        console.print(f"[bold yellow]No tienes suficiente USDT virtual. Se asignará tu máximo: {usdt_virtual:.2f}[/bold yellow]")
+        dinero_asignado = usdt_virtual
         
     balance_usd = dinero_asignado
-    crypto_held = btc_virtual # o btc_real para usarl la cartera real
+    crypto_held = btc_virtual # Cambiar a btc_real si se quiere usar el saldo real
     
     df_inicial = descargar_velas_binance(client, limit=1)
     precio_arranque = df_inicial.iloc[-1]['Close']
