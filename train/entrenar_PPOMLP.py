@@ -20,15 +20,11 @@ NOMBRE_EXPERIMENTO = "PPO_29_500k_curva_aprendizaje"
 NOTAS_EXPERIMENTO = "Entrenamiento con dataset completo, TradingEnv_v2, 500k steps"
 
 def curva_de_aprendizaje(initial_value: float) -> Callable[[float], float]:
-    """
-    Desciende el learning rate linealmente desde initial_value hasta 0.
-    """
     def func(progress_remaining: float) -> float:
         return progress_remaining * initial_value
     return func
 
 def evaluar_modelo(model, env, n_episodes=10):
-    """Evalúa el modelo durante n episodios y retorna métricas COMPLETAS"""
     all_rewards = []
     all_net_worths = []
     all_profits = []
@@ -65,7 +61,6 @@ def evaluar_modelo(model, env, n_episodes=10):
     }
 
 def comparar_con_buy_and_hold(env):
-    """Estrategia baseline: comprar al inicio y vender al final"""
     obs, info = env.reset()
 
     action_buy = np.array([1.0, 1.0], dtype=np.float32)
@@ -89,19 +84,12 @@ def comparar_con_buy_and_hold(env):
         'profit_pct': info['profit_pct']
     }
 
-# ============================================================================
-# MAIN
-# ============================================================================
-
 def main():
-    # Crear directorios
     os.makedirs(MODELO_DIR, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
     
-    # Cargar dataset
     dataset = pd.read_csv(RUTA_DATOS, index_col=0, parse_dates=True)
     
-    # Split temporal
     n = len(dataset)
     train_end = int(n * 0.70)
     val_end = int(n * 0.85)
@@ -109,14 +97,12 @@ def main():
     df_train = dataset.iloc[:train_end]
     df_val = dataset.iloc[train_end:val_end]
     df_test = dataset.iloc[val_end:]
-    
-    # Crear entornos
+
     env_train = Monitor(TradingEnv(df_train), filename=os.path.join(LOGS_DIR, "train_monitor.csv"))
     env_val = Monitor(TradingEnv(df_val), filename=os.path.join(LOGS_DIR, "val_monitor.csv"))
     env_test = TradingEnv(df_test)
     
     env_train_vec = DummyVecEnv([lambda: env_train])
-    
     eval_callback = EvalCallback(
         env_val,
         best_model_save_path=os.path.join(MODELO_DIR, "best_model"),
@@ -127,8 +113,6 @@ def main():
         n_eval_episodes=5
     )
     
-    # Instanciar modelo PPO
-    print("\n🤖 Creando modelo PPO...")
     model = PPO(
         policy="MlpPolicy",
         env=env_train_vec,
@@ -146,7 +130,6 @@ def main():
         tensorboard_log=os.path.join(LOGS_DIR, "tensorboard")
     )
     
-    # Entrenar modelo
     start_time = datetime.now()
     model.learn(
         total_timesteps=TIME_STEPS,
@@ -156,13 +139,9 @@ def main():
     end_time = datetime.now()
     
     training_time = (end_time - start_time).total_seconds()
-    print(f"\n   ✓ Entrenamiento completado en {training_time:.2f} segundos ({training_time/60:.2f} minutos)")
-    
-    # Guardar modelo final
+    print(f"\nEntrenamiento completado en {training_time:.2f} segundos ({training_time/60:.2f} minutos)")
     model_path = os.path.join(MODELO_DIR, f"{NOMBRE_EXPERIMENTO}_final.zip")
     model.save(model_path)
-    
-    # Evaluar en conjunto de test
     print("\nTEST")
     test_metrics = evaluar_modelo(model, env_test, n_episodes=10)
     
@@ -172,11 +151,9 @@ def main():
     print(f"   Max Profit:       {test_metrics['max_profit_pct']:.2f}% (${test_metrics['max_net_worth']:,.2f})")
     print(f"   Min Profit:       {test_metrics['min_profit_pct']:.2f}% (${test_metrics['min_net_worth']:,.2f})")
     
-    # Calcular ganancia promedio
     ganancia_promedio = test_metrics['mean_net_worth'] - 10000
     print(f"\n Ganancia Promedio: ${ganancia_promedio:+,.2f}")
     
-    # Comparar con Buy & Hold
     print("\n  Comparación con Buy & Hold...")
     bh_metrics = comparar_con_buy_and_hold(env_test)
     bh_ganancia = bh_metrics['net_worth'] - 10000
@@ -204,8 +181,7 @@ def main():
         print(f"      Diferencia ROI: +{diferencia_roi:.2f}%")
         print(f"      Diferencia USD: ${diferencia_usd:+,.2f}")
     
-    # Ejecutar 1 episodio detallado
-    print("\n🎬 Ejecutando episodio detallado en TEST...")
+    print("\nEjecutando episodio detallado en TEST...")
     print("-" * 60)
     
     obs, info = env_test.reset()
