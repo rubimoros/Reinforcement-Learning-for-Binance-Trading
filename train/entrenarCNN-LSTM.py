@@ -43,16 +43,10 @@ if len(sys.argv) > 1:
 
 
 def curva_de_aprendizaje(initial_value: float) -> Callable[[float], float]:
-    """
-    Desciende el learning rate linealmente desde initial_value hasta 0.
-    """
     def func(progress_remaining: float) -> float:
         return progress_remaining * initial_value
     return func
 
-# ========================================================================
-# 1. WRAPPER DE VISIÓN 
-# ========================================================================
 class HistoryWrapper(gym.ObservationWrapper):
     def __init__(self, env, window_size=50):
         super().__init__(env)
@@ -76,9 +70,6 @@ class HistoryWrapper(gym.ObservationWrapper):
         self.obs_buffer = np.zeros_like(self.obs_buffer)
         return self.observation(obs), info
 
-# ========================================================================
-# 2. LAS "GAFAS" (CNN 1D)
-# ========================================================================
 class TradingCNN(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 256):
         super().__init__(observation_space, features_dim)
@@ -101,15 +92,11 @@ class TradingCNN(BaseFeaturesExtractor):
             sample_obs = th.as_tensor(observation_space.sample()[None]).float()
             n_flatten = self.cnn(sample_obs).shape[1]
 
-        # La salida de estas gafas (256 dimensiones) se enchufará a la memoria LSTM
         self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.Tanh())
 
     def forward(self, observations: th.Tensor) -> th.Tensor:
         return self.linear(self.cnn(observations))
 
-# ========================================================================
-# FUNCIONES DE EVALUACIÓN (Con memoria restaurada)
-# ========================================================================
 def evaluar_modelo(model, env, n_episodes=10):
     all_rewards = []
     all_net_worths = []
@@ -139,7 +126,6 @@ def evaluar_modelo(model, env, n_episodes=10):
             episode_reward += reward
             all_bonus.append(info['bonus'])
             
-        # Recogida de datos al terminar el episodio
         final_net_worth = info['net_worth']
         profit_pct = info['profit_pct']
         
@@ -219,9 +205,6 @@ def main():
     df_val['Puntuacion'] = 0.0
     df_test['Puntuacion'] = 0.0
 
-    # Scaler único: ajustado solo con train, reutilizado en val/test. Si ya existe
-    # el guardado por entrenar.py (misma corrida de dataset), lo reutiliza tal cual
-    # para que las 3 arquitecturas compitan con exactamente el mismo scaler.
     if os.path.exists(RUTA_SCALER):
         scaler_maestro = joblib.load(RUTA_SCALER)
     else:
@@ -256,12 +239,11 @@ def main():
         n_eval_episodes=5
     )
     
-    # <-- Configuración Híbrida (Conectamos CNN y LSTM)
     policy_kwargs = dict(
         features_extractor_class=TradingCNN,
         features_extractor_kwargs=dict(features_dim=256),
-        lstm_hidden_size=256,  # Tamaño del "Cerebro"
-        n_lstm_layers=1        # Capas de memoria
+        lstm_hidden_size=256,
+        n_lstm_layers=1
     )
     
     model = PPO(
@@ -291,7 +273,7 @@ def main():
     model.save(os.path.join(MODELO_DIR, f"{NOMBRE_EXPERIMENTO}_final.zip"))
     
     print("\n" + "=" * 60)
-    print("📊 EVALUACIÓN FINAL CNN + LSTM")
+    print("EVALUACIÓN FINAL CNN + LSTM")
     print("=" * 60)
     
     train_metrics = evaluar_modelo(model, env_train_vec.envs[0].env, n_episodes=1)
@@ -312,7 +294,6 @@ def main():
     print(f"\n   Buy & Hold ROI:   {bh_metrics['profit_pct']:.2f}%")
     print(f"   RL Agent ROI:     {test_metrics['mean_profit_pct']:.2f}%")
     
-    # Ejecutar 1 episodio detallado con memoria
     obs, info = env_test.reset()
     episode_reward = 0
     step_count = 0
