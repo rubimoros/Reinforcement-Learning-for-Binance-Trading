@@ -29,14 +29,10 @@ torch.backends.cudnn.benchmark = False
 
 
 def curva_de_aprendizaje(initial_value: float) -> Callable[[float], float]:
-    """
-    Desciende el learning rate linealmente desde initial_value hasta 0.
-    """
     def func(progress_remaining: float) -> float:
         return progress_remaining * initial_value
     return func
 def evaluar_modelo(model, env, n_episodes=10):
-    """Evalúa el modelo durante n episodios y retorna métricas COMPLETAS"""
     all_rewards = []
     all_net_worths = []
     all_profits = []
@@ -101,8 +97,6 @@ def evaluar_modelo(model, env, n_episodes=10):
     }
 
 def comparar_con_buy_and_hold(env):
-    """Estrategia baseline: matemática pura (All-In real sin restricciones del entorno)"""
-
     env_u = env.unwrapped if hasattr(env, 'unwrapped') else env
     
     precio_inicial = env_u.precios[0]
@@ -125,15 +119,11 @@ def comparar_con_buy_and_hold(env):
     }
 
 def main():
-    
-    # Crear directorios
     os.makedirs(MODELO_DIR, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
     
-    # Cargar dataset
     dataset = pd.read_csv(RUTA_DATOS, index_col=0, parse_dates=True)
     
-    # Split temporal
     n = len(dataset)
     train_end = int(n * 0.70)
     val_end = int(n * 0.85)
@@ -145,7 +135,6 @@ def main():
     df_val['Puntuacion'] = 5
     df_test['Puntuacion'] = 5
     
-    # Crear entornos
     env_train = Monitor(TradingEnv(df_train), filename=os.path.join(LOGS_DIR, "train_monitor.csv"))
     env_val = Monitor(TradingEnv(df_val), filename=os.path.join(LOGS_DIR, "val_monitor.csv"))
     env_test = TradingEnv(df_test)
@@ -165,24 +154,22 @@ def main():
     
     policy_kwargs = dict(net_arch=[512, 512, 256])
     
-    # Instanciar modelo SAC
     model = SAC(
         policy="MlpPolicy",
         env=env_train_vec,
-        learning_rate=curva_de_aprendizaje(3e-4), # LR Dinámico
+        learning_rate=curva_de_aprendizaje(3e-4),
         buffer_size=100000,
         batch_size=256,
         ent_coef='auto',
-        gamma=0.995,              # Visión más a largo plazo
+        gamma=0.995,            
         tau=0.005,
-        train_freq=(100, "step"), # Opera 100 pasos seguidos...
-        gradient_steps=50,        # ...y estudia 50 (menos pánico)
-        policy_kwargs=policy_kwargs, # Red neuronal masiva
+        train_freq=(100, "step"),
+        gradient_steps=50,
+        policy_kwargs=policy_kwargs,
         verbose=1,
         tensorboard_log=os.path.join(LOGS_DIR, "tensorboard")
     )
     
-    # Entrenar modelo
     start_time = datetime.now()
     model.learn(
         total_timesteps=TIME_STEPS,
@@ -192,18 +179,13 @@ def main():
     end_time = datetime.now()
     
     training_time = (end_time - start_time).total_seconds()
-    print(f"\n   ✓ Entrenamiento completado en {training_time:.2f} segundos ({training_time/60:.2f} minutos)")
-    
-    # Guardar modelo final
+    print(f"\nEntrenamiento completado en {training_time:.2f} segundos ({training_time/60:.2f} minutos)")
     model_path = os.path.join(MODELO_DIR, f"{NOMBRE_EXPERIMENTO}_final.zip")
     model.save(model_path)
-    print(f"   ✓ Modelo guardado en: {model_path}")
+    print(f"Modelo guardado en: {model_path}")
     
-    # ========================================================================
-    # EVALUACIÓN FINAL
-    # ========================================================================
     print("\n" + "=" * 60)
-    print("📊 EVALUACIÓN FINAL")
+    print("EVALUACIÓN SAC")
     print("=" * 60)
     
     # Evaluar en conjunto de test
@@ -222,11 +204,9 @@ def main():
     print(f"   Max Profit:       {test_metrics['max_profit_pct']:.2f}% (${test_metrics['max_net_worth']:,.2f})")
     print(f"   Min Profit:       {test_metrics['min_profit_pct']:.2f}% (${test_metrics['min_net_worth']:,.2f})")
     
-    # Calcular ganancia promedio
     ganancia_promedio = test_metrics['mean_net_worth'] - 10000
     print(f"\nGanancia Promedio: ${ganancia_promedio:+,.2f}")
     
-    # Comparar con Buy & Hold
     print("\nBuy & Hold...")
     bh_metrics = comparar_con_buy_and_hold(env_test)
     bh_ganancia = bh_metrics['net_worth'] - 10000
@@ -254,7 +234,6 @@ def main():
         print(f"      Diferencia ROI: +{diferencia_roi:.2f}%")
         print(f"      Diferencia USD: ${diferencia_usd:+,.2f}")
     
-    # Ejecutar 1 episodio detallado
     obs, info = env_test.reset()
     episode_reward = 0
     step_count = 0
