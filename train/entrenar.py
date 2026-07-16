@@ -19,7 +19,7 @@ import random
 
 RUTA_DATOS = "data/dataset_puntuaciones_picos_valles_atr_15minutos2021_24.csv"
 TIME_STEPS = 500000
-CHECKPOINT_FREQ = 25000  # guarda un snapshot cada 25k steps para poder compararlos todos luego
+CHECKPOINT_FREQ = 25000  # guarda un snapshot cada 25k
 NOMBRE_EXPERIMENTO = "LSTM_INDICADORESFINAL_LRDECAY(RecurrentPPO87_SEMILLA42)"
 NOTAS_EXPERIMENTO = "impacto=0.05, vago=-0.05, sell=-0.1. Con decaimiento de learning rate y evaluación de checkpoints intermedios contra test real."
 MODELO_DIR = "models"
@@ -43,15 +43,11 @@ else:
     objetivo = OBJETIVO
 
 def curva_de_aprendizaje(initial_value: float) -> Callable[[float], float]:
-    """
-    Desciende el learning rate linealmente desde initial_value hasta 0.
-    """
     def func(progress_remaining: float) -> float:
         return progress_remaining * initial_value
     return func
 
 def evaluar_modelo(model, env, n_episodes=10):
-    """Evalúa el modelo durante n episodios y retorna métricas COMPLETAS"""
     all_rewards = []
     all_net_worths = []
     all_profits = []
@@ -117,11 +113,10 @@ def evaluar_modelo(model, env, n_episodes=10):
         'peor_trade_pct': info['peor_trade_pct'] * 100,
         'fecha_mejor_trade': info['fecha_mejor_trade'],
         'fecha_peor_trade': info['fecha_peor_trade'],
-        'pasos_completados': None,  # se rellena fuera si el episodio se corta antes de tiempo
+        'pasos_completados': None,
     }
 
 def comparar_con_buy_and_hold(env):
-    """Estrategia baseline: matemática pura (All-In real sin restricciones del entorno)"""
     env_u = env.unwrapped if hasattr(env, 'unwrapped') else env
     precio_inicial = env_u.precios[0]
     precio_final = env_u.precios[env_u.max_steps]
@@ -139,8 +134,6 @@ def comparar_con_buy_and_hold(env):
 
 
 def extraer_steps(nombre_archivo):
-    """Extrae el número de steps del nombre de fichero que genera CheckpointCallback,
-    del tipo NOMBRE_EXPERIMENTO_123456_steps.zip"""
     match = re.search(r'_(\d+)_steps', nombre_archivo)
     return int(match.group(1)) if match else -1
 
@@ -197,7 +190,6 @@ def main():
 
     callbacks = CallbackList([eval_callback, checkpoint_callback])
     
-    # Decaimiento de learning rate activado (antes se definía pero no se usaba)
     model = PPO(
         policy="MlpLstmPolicy",
         env=env_train_vec,
@@ -224,34 +216,30 @@ def main():
     end_time = datetime.now()
     
     training_time = (end_time - start_time).total_seconds()
-    print(f"\n   ✓ Entrenamiento completado en {training_time:.2f} segundos ({training_time/60:.2f} minutos)")
+    print(f"\nEntrenamiento completado en {training_time:.2f} segundos ({training_time/60:.2f} minutos)")
     
     model_path = os.path.join(MODELO_DIR, f"{NOMBRE_EXPERIMENTO}_final.zip")
     model.save(model_path)
-    print(f"   ✓ Modelo final guardado en: {model_path}")
+    print(f" Modelo final guardado en: {model_path}")
 
-    # ========================================================================
-    # EVALUACIÓN DE TODOS LOS CHECKPOINTS CONTRA EL TEST SET REAL
-    # ========================================================================
     print("\n" + "=" * 70)
-    print("📊 EVALUANDO TODOS LOS CHECKPOINTS CONTRA TEST (para elegir el mejor punto de corte)")
+    print("EVALUANDO TODOS LOS CHECKPOINTS")
     print("=" * 70)
 
     bh_metrics = comparar_con_buy_and_hold(env_test)
 
     candidatos = []
 
-    # Checkpoints periódicos guardados durante el entrenamiento
+    # Checkpoints periódicos
     for ruta in sorted(glob.glob(os.path.join(CHECKPOINTS_DIR, f"{NOMBRE_EXPERIMENTO}_*_steps.zip")), key=extraer_steps):
         steps = extraer_steps(ruta)
         candidatos.append((f"checkpoint_{steps}", ruta))
 
-    # El "mejor por validación" de EvalCallback
+    # El mejor se guarda para producción
     ruta_best = os.path.join(MODELO_DIR, "best_model_lstm_15m", "best_model.zip")
     if os.path.exists(ruta_best):
         candidatos.append(("best_model (EvalCallback)", ruta_best))
 
-    # El modelo final tras todos los steps
     candidatos.append(("final", model_path))
 
     resultados_tabla = []
@@ -259,7 +247,7 @@ def main():
         try:
             modelo_candidato = PPO.load(ruta)
         except Exception as e:
-            print(f"   ⚠️ No se pudo cargar {ruta}: {e}")
+            print(f"No se pudo cargar {ruta}: {e}")
             continue
 
         metricas = evaluar_modelo(modelo_candidato, env_test, n_episodes=10)
@@ -288,12 +276,9 @@ def main():
 
     mejor = max(resultados_tabla, key=lambda x: x['roi_pct']) if resultados_tabla else None
     if mejor:
-        print(f"\n👉 Mejor candidato por ROI en test: {mejor['candidato']} "
+        print(f"\nMejor candidato por ROI en test: {mejor['candidato']} "
               f"(ROI {mejor['roi_pct']:.2f}%, Sharpe {mejor['sharpe']:.3f})")
-        print("   Revisa también Sharpe y max drawdown antes de decidir cuál poner en producción —")
-        print("   el mejor ROI puntual no siempre es la opción más estable.")
 
-    # Guardar el resultado del modelo final como referencia histórica (igual que antes)
     test_metrics_final = next((r for r in resultados_tabla if r['candidato'] == 'final'), None)
     if test_metrics_final:
         ResultadosManager.guardar(
