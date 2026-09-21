@@ -7,13 +7,13 @@ import pandas as pd
 import numpy as np
 import joblib
 import warnings
-from sb3_contrib import RecurrentPPO
+from stable_baselines3 import PPO
 from utils.config_params import get_api_secret_test
 warnings.filterwarnings('ignore')
 from compraVenta import crear_cliente, API_KEY
 from utils.indicators_final import TechnicalIndicators
 
-RUTA_MODELO = "../models/checkpoints/LSTM_INDICADORESFINAL_LRDECAY(RecurrentPPO87_SEMILLA42)_425000_steps.zip"
+RUTA_MODELO = "../models/checkpoints/CNN_INDICADORESFINAL(PPO_24_SEMILLA42)_50000_steps.zip"
 RUTA_SCALER = "../scalers/scaler_15m.pkl"
 
 def descargar_velas_binance(client, symbol="BTCUSDT", interval="15m", limit=250):
@@ -31,7 +31,7 @@ def descargar_velas_binance(client, symbol="BTCUSDT", interval="15m", limit=250)
     
     return df[['Open', 'High', 'Low', 'Close', 'Volume']]
 
-def preparar_secuencia_lstm(df_crudo):
+def preparar_secuencia_cnn(df_crudo):
     sma = TechnicalIndicators.calculate_sma(df_crudo, period_1=20, period_2=80)
     df_crudo = df_crudo.join(sma.rename(columns={"INDICADOR_1": "SMA_20", "INDICADOR_2": "SMA_80"}))
     
@@ -120,27 +120,26 @@ def preparar_secuencia_lstm(df_crudo):
 def consultar_modelo():
     client = crear_cliente(api_key=API_KEY, api_secret=get_api_secret_test(), is_testnet=True)
     df_mercado = descargar_velas_binance(client)
-    secuencia_obs = preparar_secuencia_lstm(df_mercado)
+    secuencia_obs = preparar_secuencia_cnn(df_mercado)
     
     try:
-        model = RecurrentPPO.load(RUTA_MODELO)
+        model = PPO.load(RUTA_MODELO)
     except Exception as e:
         sys.exit(1)
     
-    lstm_states = None
-    episode_starts = np.ones((1,), dtype=bool)
-    accion_final = None
-    
-    for step_idx, obs in enumerate(secuencia_obs):
-        obs_batch = np.array([obs])
-        accion_predicha, lstm_states = model.predict(
-            obs_batch, 
-            state=lstm_states, 
-            episode_start=episode_starts, 
-            deterministic=True
-        )
-        episode_starts = np.zeros((1,), dtype=bool) 
-        accion_final = accion_predicha[0]
+    window_size = 50
+    if len(secuencia_obs) < window_size:
+        print(f"Error: No hay suficientes datos para formar la ventana de {window_size} velas.")
+        return
+
+    # Extraemos el bloque de las últimas 50 observaciones
+    obs_ventana = secuencia_obs[-window_size:]
+    obs_batch = np.array([obs_ventana])
+    accion_predicha, _ = model.predict(
+        obs_batch, 
+        deterministic=True
+    )
+    accion_final = accion_predicha[0]
     
     tipo_operacion = accion_final[0]
     cantidad_operacion = np.clip(accion_final[1], 0.01, 1.0) if len(accion_final) > 1 else 1.0
