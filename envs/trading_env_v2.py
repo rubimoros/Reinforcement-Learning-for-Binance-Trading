@@ -62,13 +62,16 @@ class TradingEnv_v2(gym.Env):
         self.peor_trade_pct = 0.0
         self.fecha_mejor_trade = None
         self.fecha_peor_trade = None
+        
+        # Tracking avanzado y rachas
         self.peak_net_worth = self.balance_inicial
         self.max_drawdown = 0.0
         self.historial_net_worth = [self.net_worth]
         self.historial_trades_pct = [] 
         self.current_streak = 0
         self.max_win_streak = 0
-        self.max_lose_streak = 0 
+        self.max_lose_streak = 0
+        
         self.step_ultima_compra = 0
         self.tiempos_operacion = []
 
@@ -116,7 +119,7 @@ class TradingEnv_v2(gym.Env):
         operacion = "HOLD"
         fecha_actual = self.dataset.index[self.current_step] if True else self.current_step
         
-        # ---COMPRA ---
+        # --- LÓGICA DE COMPRA ---
         if tipo_operacion > 0.33 and self.balance > 10:  
             NUM_SACOS = 5  
             tamano_saco_maximo = self.balance_inicial / NUM_SACOS
@@ -137,7 +140,7 @@ class TradingEnv_v2(gym.Env):
             operacion = "BUY"
             self.total_buys += 1
 
-        # ---VENTA ---
+        # --- LÓGICA DE VENTA ---
         elif tipo_operacion < -0.33 and self.crypto_held > 1e-5:  
             cantidad_vender = self.crypto_held * porcentaje_operacion
             ingresos_brutos = cantidad_vender * precio_venta
@@ -153,8 +156,11 @@ class TradingEnv_v2(gym.Env):
             if self.crypto_held < 1e-5:
                 self.crypto_held = 0.0
                 self.precio_promedio = 0.0
+
+            # Guardar histórico para métricas avanzadas (Averages, Expectancy)
             self.historial_trades_pct.append(profit_realizado)
             
+            # Lógica de rachas (Streaks)
             if profit_realizado > 0:
                 self.ventas_ganadoras += 1
                 self.current_streak = self.current_streak + 1 if self.current_streak > 0 else 1
@@ -177,7 +183,7 @@ class TradingEnv_v2(gym.Env):
             operacion = "HOLD"
             self.total_holds += 1
         
-        # ---RECOMPENSAS ---
+        # --- CÁLCULO RECOMPENSAS ---
         nw_after = self.balance + (self.crypto_held * precio_venta)
         
         if self.objetivo == "USD":
@@ -189,6 +195,7 @@ class TradingEnv_v2(gym.Env):
             objetivo_ganancia_despues = self.crypto_held + (self.balance / precio_actual)
             reward_base = (objetivo_ganancia_despues - objetivo_ganancia_antes) * 1000.0  
 
+        # Drawdown Updates
         if nw_after > self.peak_net_worth:
             self.peak_net_worth = nw_after
         caida_actual = (self.peak_net_worth - nw_after) / self.peak_net_worth
@@ -197,26 +204,18 @@ class TradingEnv_v2(gym.Env):
             
         self.historial_net_worth.append(nw_after)
         
+        # Modificadores de bonificaciones
         bonus_sell = 0.0
         penalty_loss = 0.0
         if operacion == "SELL":
-	    # Bonificación por venta rentable
             if profit_realizado > 0:
-                if profit_realizado < 0.005:  # Si la ganancia es menor al 0.5%
-                	bonus_sell = -0.1       # Castigo bestial por cobarde se va bajando a medida que hacemos que sea menos adicto
-            	else:
-                	# bonus_sell = min(profit_realizado * 2, 0.5)  # vamos a multiplicar por 2 el bonus previo por compras con buen beneficio
-                	bonus_sell = min(profit_realizado / 10, 0.05)  # Max 0.05
+                bonus_sell = -0.1 if profit_realizado < 0.005 else min(profit_realizado * 2, 0.5)
             else:
-		# Penalización por ventas con pérdida
                 penalty_loss = max(profit_realizado / 10, -0.05)
 
-	# Recompensa con puntuación
         puntuacion_actual = self.puntuaciones[self.current_step]
         bonus_puntuacion = 0.0
-        impacto_puntuacion = 0.05 #Cambiar a 0,02 0,01 si solo hace caso a mis indicaciones, si pasa de mi ponerlo en 0,1
-        # ep_mean_reard sube mucho pero si salta el EvalCallback y miramos el mean_reward es negativo o cercano a cera cambia el factor 0.02 o 0.01
-        # Si el WinRate no ha mejorado con respecto a modelos anteriores subir el impacto a 0.01 o 0.015
+        impacto_puntuacion = 0.05
 
         if operacion == "BUY":
             bonus_puntuacion = puntuacion_actual * impacto_puntuacion
@@ -235,17 +234,14 @@ class TradingEnv_v2(gym.Env):
             if self.step_ultima_compra > 0:
                 duracion_velas = self.current_step - self.step_ultima_compra
                 self.tiempos_operacion.append(duracion_velas)
-                self.step_ultima_compra = 0
-
-        # Penalizacion por vago        
+                self.step_ultima_compra = 0 
+                
         penalizacion_vago = -0.05 if operacion == "HOLD" and self.crypto_held == 0.0 else 0.0
-	# Reward final
         reward = reward_base + bonus_sell + penalty_loss + bonus_puntuacion + penalizacion_vago
         
         self.net_worth = nw_after
-	# Avanzar
         self.current_step += 1
-        # Terminación
+        
         terminated = self.current_step >= self.max_steps
         truncated = False
         
@@ -258,7 +254,7 @@ class TradingEnv_v2(gym.Env):
             observation = self._get_observation()
             self.current_step += 1
         
-        # Bancarrota
+        # Bancarrota Break
         CIRCUIT_BREAKER_THRESHOLD = -25.0
         if info['profit_pct'] <= CIRCUIT_BREAKER_THRESHOLD:
             terminated = True
@@ -271,9 +267,13 @@ class TradingEnv_v2(gym.Env):
         nw_btc = self.crypto_held + (self.balance / precio_actual)
         profit_btc_pct = ((nw_btc - self.btc_inicial) / self.btc_inicial) * 100
         profit_pct = ((self.net_worth - self.balance_inicial) / self.balance_inicial) * 100
+        
+        # Win Rate
         ratio_ganadoras = (self.ventas_ganadoras / self.total_sells) * 100 if self.total_sells > 0 else 0.0
         ratio_perdedoras = (self.ventas_perdedoras / self.total_sells) * 100 if self.total_sells > 0 else 0.0
-        trades = np.array(self.historial_trades_pct) * 100
+        
+        # Averages, Expectancy & Risk/Reward
+        trades = np.array(self.historial_trades_pct) * 100 # Multiplicamos por 100 para tenerlo en %
         avg_win = avg_loss = risk_reward = expectancy = 0.0
         
         if len(trades) > 0:
@@ -285,6 +285,8 @@ class TradingEnv_v2(gym.Env):
             
             win_r = self.ventas_ganadoras / self.total_sells
             expectancy = (win_r * avg_win) + ((1 - win_r) * avg_loss)
+
+        # Ratios Avanzados (Sharpe, Sortino, Calmar)
         sharpe_ratio = sortino_ratio = calmar_ratio = 0.0
         historial_np = np.array(self.historial_net_worth)
         
@@ -298,7 +300,7 @@ class TradingEnv_v2(gym.Env):
             std_negative = np.std(negative_returns) if len(negative_returns) > 0 else 0.0
             
             if std_returns > 0:
-                sharpe_ratio = (np.mean(returns) / std_returns) * np.sqrt(35040) # Velas 15m, si se entrena con otro intervalo CAMBIAR ESTE VALOR
+                sharpe_ratio = (np.mean(returns) / std_returns) * np.sqrt(35040) # Velas 15m
             if std_negative > 0:
                 sortino_ratio = (np.mean(returns) / std_negative) * np.sqrt(35040)
         
