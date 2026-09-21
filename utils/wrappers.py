@@ -1,25 +1,9 @@
-"""
-Wrappers de ventana temporal compartidos entre entrenamiento y análisis.
-
-Antes cada script (entrenarCNN.py, entrenarCNN-LSTM.py) definía su propio
-HistoryWrapper de forma local. Eso funcionaba para entrenar, pero en cuanto
-se necesita evaluar esos mismos checkpoints fuera del script de entrenamiento
-(p. ej. en analizar_checkpoints.py) hay que reconstruir la observación
-EXACTAMENTE igual, o el modelo revienta con un ValueError de forma
-incompatible. Por eso viven aquí, en un único sitio.
-"""
-
 import numpy as np
 import gymnasium as gym
 from collections import deque
 
 
 class HistoryWrapperCNN(gym.Wrapper):
-    """
-    Usado por la arquitectura CNN pura (entrenarCNN.py).
-    Devuelve observaciones con forma (window_size, n_features).
-    """
-
     def __init__(self, env, window_size=50):
         super().__init__(env)
         self.window_size = window_size
@@ -48,13 +32,6 @@ class HistoryWrapperCNN(gym.Wrapper):
 
 
 class HistoryWrapperLSTM(gym.ObservationWrapper):
-    """
-    Usado por la arquitectura CNN-LSTM (entrenarCNN-LSTM.py).
-    Devuelve observaciones con forma (n_features, window_size) -- ojo,
-    ejes invertidos respecto a HistoryWrapperCNN, porque Conv1d espera
-    (canales, longitud_secuencia).
-    """
-
     def __init__(self, env, window_size=50):
         super().__init__(env)
         self.window_size = window_size
