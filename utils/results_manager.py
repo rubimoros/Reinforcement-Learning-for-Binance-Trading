@@ -8,6 +8,7 @@ class ResultadosManager:
 
     RESULTADOS_FILE = "resultados_entrenamientos.json"
     BALANCE_INICIAL = 10000.0
+
     @classmethod
     def guardar(cls, modelo_nombre, roi_pct, reward_acumulado, dataset,
                 balance_final=None, notas="", metricas_adicionales=None,
@@ -38,7 +39,6 @@ class ResultadosManager:
             'timestamp': datetime.now().isoformat(),
             'fecha_legible': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
-
         if arquitectura is not None:
             nueva_entrada['arquitectura'] = arquitectura
         if semilla is not None:
@@ -54,7 +54,6 @@ class ResultadosManager:
 
         resultados[modelo_nombre] = nueva_entrada
         cls._guardar_json(archivo_destino, resultados)
-
     @classmethod
     def guardar_comparativa_semillas(cls, modelo_base_nombre, resultados_por_semilla,
                                       dataset, arquitectura=None, notas="",
