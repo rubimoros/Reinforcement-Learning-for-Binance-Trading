@@ -3,8 +3,7 @@ Trabajo de Fin de Grado de un agente automático para trading algorítmico con B
 
 Este repositorio contiene un sistema completo de Trading Algorítmico automatizado utilizando algoritmos de aprendizaje por refuerzo profundo (PPO, RecurrentPPO con LSTM, CNN, SAC). El agente evalúa las condiciones del mercado, calcula indicadores técnicos y se conecta a la Testnet de Binance para operar en tiempo real gestionando el riesgo de forma eficiente.
 
-El sistema evalúa las condiciones del mercado, calcula indicadores técnicos, y se conecta a la Testnet de Binance para operar en tiempo real gestionando el riesgo mediante un Circuit Breaker. El modelo de producción es un `RecurrentPPO` (política LSTM), seleccionado tras comparar varias arquitecturas (PPO/MLP, CNN 1D, CNN-LSTM, SAC).
-
+El sistema evalúa las condiciones del mercado, calcula indicadores técnicos, y se conecta a la Testnet de Binance para operar en tiempo real gestionando el riesgo mediante un Circuit Breaker. El modelo de producción es un `PPO` (arquitectura CNN 1D), seleccionado tras comparar varias arquitecturas (PPO/MLP, CNN 1D, CNN-LSTM, SAC).
 ---
 
 ## Arquitectura del proyecto
@@ -51,7 +50,7 @@ El sistema evalúa las condiciones del mercado, calcula indicadores técnicos, y
 │   └── tensorboard/
 ├── producción/
 │   ├── ui.py
-│   ├── lstm_controller.py
+│   ├── cnn_controller.py
 │   ├── compraVenta.py
 │   ├── circuit_breaker.py
 │   ├── evaluador.py
@@ -61,11 +60,14 @@ El sistema evalúa las condiciones del mercado, calcula indicadores técnicos, y
 │   └── binance.log
 └── utils/
     ├── config.ini
+    ├── callbacks.py
     ├── config_params.py
     ├── indicators_final.py
     ├── indicators_new.py
     ├── klines_example.py
+    ├── metricas_comunes.py
     └── results_manager.py
+    ├── wrappers.py
 ```
 
 ### Descripción por carpeta
@@ -96,7 +98,7 @@ El sistema evalúa las condiciones del mercado, calcula indicadores técnicos, y
 
 **`producción/`** — Ejecución en vivo contra Binance Testnet.
 - `ui.py`: interfaz de consola, punto de entrada del sistema en producción.
-- `lstm_controller.py`: descarga velas en vivo, calcula indicadores, aplica el scaler y consulta al modelo.
+- `cnn_controller.py`: descarga velas en vivo, calcula indicadores, aplica el scaler y consulta al modelo.
 - `compraVenta.py`: ejecuta las órdenes reales (BUY/SELL) contra la API de Binance.
 - `circuit_breaker.py`: bloquea la operativa si el drawdown supera el límite configurado o si una orden compromete más del porcentaje de capital permitido.
 - `evaluador.py`: evalúa uno o varios modelos candidatos contra los 7 periodos históricos de `data/evaluaciones_tfg/`.
@@ -130,18 +132,7 @@ Pasos:
 3. Abre `utils/config.ini` y sustituye `api_key_test` y `api_secret_test` por tus valores.
 4. Guarda el archivo. `utils/config_params.py` lo lee automáticamente en cada ejecución; no hace falta tocar ningún otro fichero.
 
-### Importante: no subas tus claves a GitHub
-
-`config.ini` contiene credenciales reales una vez rellenado, y este repositorio está sincronizado con GitHub. Para evitar publicar tus claves:
-
-1. Añade esta línea a un archivo `.gitignore` en la raíz del proyecto:
-   ```
-   utils/config.ini
-   ```
-2. Mantén en el repositorio una copia de referencia sin credenciales reales, por ejemplo `utils/config.ini.example`, con los mismos campos vacíos o con el texto `PONER AQUI API-KEY`.
-3. Si en algún momento ya subiste tus claves reales a un commit anterior, revócalas desde el panel de la Testnet y genera unas nuevas — quitarlas de `.gitignore` a partir de ahora no las borra del historial de git.
-
-Si quieres, puedo generar ese `.gitignore` y el `config.ini.example` directamente.
+`config.ini` contiene credenciales reales una vez rellenado, y este repositorio está sincronizado con GitHub.
 
 ---
 
@@ -188,14 +179,14 @@ Se almacenan en `data/evaluaciones_tfg/`.
 ### 3. Entrenar el modelo
 
 ```bash
-python train/entrenar.py USD
+python train/entrenarCNN.py USD
 ```
 
 (El argumento `USD` o `BTC` define el objetivo de recompensa; ver `envs/trading_env_v2.py`.)
 
 Durante el entrenamiento se realiza automáticamente:
 - Carga del dataset y ajuste del `StandardScaler` sobre el conjunto de train.
-- Entrenamiento del modelo `RecurrentPPO` (LSTM) con decaimiento de learning rate.
+- Entrenamiento del modelo `PPO` (CNN).
 - Guardado de checkpoints cada 25.000 steps.
 - Registro de métricas en `resultados_entrenamientos.json`.
 
@@ -204,7 +195,7 @@ Archivos generados:
 - Scaler ajustado: `scalers/scaler_15m.pkl`.
 - Logs de entrenamiento: `logs/`.
 
-Para entrenar las arquitecturas alternativas: `python train/entrenarCNN.py`, `python train/entrenarCNN-LSTM.py`, `python train/entrenarSAC.py`, `python train/entrenar_PPOMLP.py`.
+Para entrenar las arquitecturas alternativas: `python train/entrenar.py`, `python train/entrenarCNN-LSTM.py`, `python train/entrenarSAC.py`, `python train/entrenar_PPOMLP.py`.
 
 ### 4. Monitorizar el entrenamiento con TensorBoard
 
