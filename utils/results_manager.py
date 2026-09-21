@@ -8,10 +8,6 @@ class ResultadosManager:
 
     RESULTADOS_FILE = "resultados_entrenamientos.json"
     BALANCE_INICIAL = 10000.0
-
-    # ------------------------------------------------------------------
-    # Guardado de UN entrenamiento individual (una arquitectura, una semilla)
-    # ------------------------------------------------------------------
     @classmethod
     def guardar(cls, modelo_nombre, roi_pct, reward_acumulado, dataset,
                 balance_final=None, notas="", metricas_adicionales=None,
@@ -43,8 +39,6 @@ class ResultadosManager:
             'fecha_legible': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         }
 
-        # Variables de control del experimento (para que quede trazado en el
-        # propio JSON qué se mantuvo fijo y qué se cambió entre runs)
         if arquitectura is not None:
             nueva_entrada['arquitectura'] = arquitectura
         if semilla is not None:
@@ -61,21 +55,11 @@ class ResultadosManager:
         resultados[modelo_nombre] = nueva_entrada
         cls._guardar_json(archivo_destino, resultados)
 
-    # ------------------------------------------------------------------
-    # Guardado de una COMPARATIVA multi-semilla (lo que pide el tutor:
-    # media, desviación, mejor y peor resultado por arquitectura)
-    # ------------------------------------------------------------------
     @classmethod
     def guardar_comparativa_semillas(cls, modelo_base_nombre, resultados_por_semilla,
                                       dataset, arquitectura=None, notas="",
                                       tiempos_entrenamiento_seg=None,
                                       archivo_destino=None):
-        """
-        resultados_por_semilla: dict {semilla: metricas_dict}
-            metricas_dict es la salida de evaluar_modelo() (metricas_comunes.py),
-            o cualquier dict que incluya al menos 'roi_pct' (o 'profit_pct').
-        tiempos_entrenamiento_seg: dict opcional {semilla: segundos}
-        """
         if archivo_destino is None:
             archivo_destino = cls.RESULTADOS_FILE
 
@@ -118,10 +102,6 @@ class ResultadosManager:
 
         cls._guardar_json(archivo_destino, resultados)
         return resumen
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
     @classmethod
     def _cargar(cls, archivo_destino):
         if os.path.exists(archivo_destino):
