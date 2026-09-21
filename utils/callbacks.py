@@ -1,18 +1,3 @@
-"""
-Callback compartido de selección de checkpoint.
-
-Se evalúa periódicamente contra VALIDACIÓN (nunca test) usando una métrica
-financiera real (ROI por defecto, no el reward bruto del Monitor, que mezcla
-bonus del oráculo y penalizaciones). Solo se sobrescribe best_model.zip
-cuando se supera el mejor valor visto hasta el momento, así que al terminar
-el entrenamiento ese fichero ya es, por construcción, el mejor candidato
-según validación -- no hace falta comparar nada contra test para elegirlo.
-
-Se usa exactamente igual en entrenar.py, entrenarCNN.py y
-entrenarCNN-LSTM.py para que el criterio de selección sea una variable
-controlada idéntica entre las tres arquitecturas.
-"""
-
 import os
 from stable_baselines3.common.callbacks import BaseCallback
 from utils.metricas_comunes import evaluar_modelo
@@ -51,6 +36,6 @@ class SeleccionPorMetricaCallback(BaseCallback):
                 os.makedirs(self.ruta_guardado, exist_ok=True)
                 self.model.save(os.path.join(self.ruta_guardado, "best_model.zip"))
                 if self.verbose:
-                    print(f"   ✓ Nuevo mejor modelo guardado (step {self.num_timesteps})")
+                    print(f" Nuevo mejor modelo guardado (step {self.num_timesteps})")
 
         return True
